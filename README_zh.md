@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="figures/owb.png" alt="OpenWorldBench" width="220"/>
+</p>
+
 # OpenWorldBench
 
 面向真实业务场景的具身模型 **reasoning** 能力评测基准。
