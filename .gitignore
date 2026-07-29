@@ -1,0 +1,33 @@
+# Local environments & tooling
+.venv/
+venv/
+.env
+.cursor/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+
+# Local artifacts (not part of the public tree)
+outputs/
+*.db
+*.sqlite
+*.sqlite3
+
+# Local-only docs / reference clones (keep on disk, do not push)
+checklist.md
+openworldbench_refactor_plan.md
+external/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~

@@ -1,0 +1,1 @@
+# OpenWorldBench — scenario/area/entity Pydantic models

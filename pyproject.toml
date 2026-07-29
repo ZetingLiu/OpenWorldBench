@@ -1,9 +1,9 @@
 [project]
-name = "agent-world-model"
+name = "openworldbench"
 version = "0.1.0"
-description = "Agent World Model"
+description = "OpenWorldBench — Data-driven embodied agent benchmark"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "fastapi==0.115.12",
     "fastapi-mcp==0.4.0",
@@ -13,6 +13,8 @@ dependencies = [
     "numpy>=2.4.2",
     "openai>=2.17.0",
     "orjson>=3.11.7",
+    "pydantic>=2.0",
+    "httpx>=0.27.0",
     "simpleargparser>=0.2.2",
     "sqlalchemy==2.0.41",
     "tiktoken>=0.12.0",
@@ -34,7 +36,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["awm"]
+packages = ["owb"]
 
 [project.scripts]
-awm = "awm.cli:main"
+owb = "owb.cli:main"

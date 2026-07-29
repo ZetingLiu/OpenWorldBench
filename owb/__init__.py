@@ -1,0 +1,1 @@
+# OpenWorldBench — data-driven embodied agent benchmark

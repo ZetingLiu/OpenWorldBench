@@ -1,0 +1,1 @@
+# OpenWorldBench — agent runner and trajectory recording
