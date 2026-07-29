@@ -31,3 +31,4 @@ external/
 .vscode/
 *.swp
 *~
+figures/owb_original.png
