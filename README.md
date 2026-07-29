@@ -1,8 +1,8 @@
-# OpenWorldBench
-
 <p align="center">
   <img src="figures/owb.png" alt="OpenWorldBench" width="520"/>
 </p>
+
+# <img src="figures/owb.png" alt="" width="64" valign="middle"/> OpenWorldBench
 
 A benchmark for embodied model **reasoning** in real-world service scenarios.
 
