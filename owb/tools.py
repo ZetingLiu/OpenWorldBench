@@ -8,6 +8,7 @@ import socket
 import subprocess
 import asyncio
 import contextlib
+import importlib.util
 import io
 import random
 
@@ -15,9 +16,16 @@ from tiktoken import encoding_for_model
 from json_repair import repair_json
 from pathlib import Path
 from loguru import logger
-from mcp_agent.app import MCPApp
-from mcp_agent.agents.agent import Agent
-from mcp_agent.config import Settings, MCPSettings, MCPServerSettings, LoggerSettings
+
+
+def _mcp_agent_available() -> bool:
+    """Report whether the optional mcp-agent SDK is installed.
+
+    Importing mcp_agent pulls in sklearn and costs several seconds, so it is
+    only imported where it is actually used; the benchmark runner talks to the
+    environment over plain HTTP and must not pay that cost.
+    """
+    return importlib.util.find_spec("mcp_agent") is not None
 
 
 def dump_sqlite_to_string(db_path: str) -> str:
@@ -117,20 +125,24 @@ def get_random_available_port(start_port: int | None = None, end_port: int | Non
 
 @contextlib.contextmanager
 def isolated_mcp_env():
+    if not _mcp_agent_available():
+        yield
+        return
+
     MCP_ENV_SAFE_PREFIXES = ['HOME', 'USER', 'PATH', 'LANG', 'TERM', 'SHELL', 'PWD', 'TMPDIR', 'TMP', 'TEMP',]
     MCP_ENV_SAFE_KEYS = ['PYTHONPATH', 'VIRTUAL_ENV', 'CONDA_PREFIX', 'CONDA_DEFAULT_ENV']
 
     saved_env = dict(os.environ)
-    
+
     keys_to_remove = []
     for key in os.environ.keys():
         is_safe = any(key.startswith(prefix) for prefix in MCP_ENV_SAFE_PREFIXES) or key in MCP_ENV_SAFE_KEYS
         if not is_safe:
             keys_to_remove.append(key)
-    
+
     for key in keys_to_remove:
         del os.environ[key]
-    
+
     try:
         yield
     finally:
@@ -142,6 +154,12 @@ async def check_mcp_server(url: str, timeout: float = 10.0) -> tuple[bool, int, 
     """
     return (is_running, tools_count, tools, error)
     """
+    if not _mcp_agent_available():
+        return (False, 0, [], "mcp_agent not installed; MCP probing unavailable")
+
+    from mcp_agent.app import MCPApp
+    from mcp_agent.agents.agent import Agent
+    from mcp_agent.config import Settings, MCPSettings, MCPServerSettings, LoggerSettings
 
     MCP_SERVER_NAME = "mcp_tool"
 
@@ -197,6 +215,34 @@ async def check_mcp_server(url: str, timeout: float = 10.0) -> tuple[bool, int, 
                 return (False, 0, [], f"Timeout after {timeout}s")
             except Exception as e:
                 return (False, 0, [], str(e))
+
+
+async def async_wait_for_http_endpoint(
+    host: str,
+    port: int,
+    path: str,
+    timeout: float = 60.0,
+) -> bool:
+    """Wait until a regular HTTP health endpoint responds successfully.
+
+    The benchmark runner calls semantic action endpoints directly, so its
+    readiness check must not depend on the optional ``mcp_agent`` package.
+    """
+    import httpx
+
+    url = f"http://{host}:{port}{path}"
+    deadline = time.time() + timeout
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        while time.time() < deadline:
+            try:
+                response = await client.get(url)
+                if response.is_success:
+                    return True
+            except httpx.HTTPError:
+                pass
+            await asyncio.sleep(0.5)
+    return False
+
 
 async def async_wait_for_server(port: int, timeout: float = 60.0) -> bool:
     """Wait for an MCP server to become available on the given port."""

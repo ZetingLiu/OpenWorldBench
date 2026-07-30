@@ -25,31 +25,96 @@ OpenWorldBench 评测视觉语言模型作为「具身大脑」时，能否在**
 |------|------|------|
 | 编译 | `owb compile` | `owb/env/compile.py` |
 | 环境 | `owb env start` | `owb/env/server.py` |
+| 交互沙箱 | `owb sandbox` | `owb/env/sandbox_cli.py` |
 | 跑任务 | `owb run` | `owb/run/` |
 | 验证 | `owb verify` | `owb/eval/verify.py` |
 | 报告 | `owb report` | `owb/eval/report.py` |
 
-## 快速开始
+## 环境配置
+
+需要 **Python ≥ 3.11**。
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
+git clone <repo-url> OpenWorldBench
+cd OpenWorldBench
 
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -e .
+```
+
+可选依赖：
+
+| Extra | 安装命令 | 用途 |
+|-------|----------|------|
+| *(默认)* | `pip install -e .` | 编译、沙箱、跑任务、验证、报告 |
+| `synth` | `pip install -e ".[synth]"` | 旧版 LLM 合成与 MCP 探测（`mcp-agent`） |
+| `bench` | `pip install -e ".[bench]"` | 需同时初始化 `mcp-adapted-bench` 子模块 |
+
+### LLM 凭证（`.env`）
+
+`owb run` 从环境变量读取 OpenAI 兼容接口。复制模板后**只在** `.env` 中填写真实密钥（该文件已 gitignore；切勿把真实 Key 写进 `.env.template`）：
+
+```bash
+cp .env.template .env
+```
+
+OpenAI 兼容接口（OpenAI / GLM / ChatAnywhere / 本地 vLLM 等）最小配置：
+
+```bash
+# .env
+AWM_SYN_LLM_PROVIDER=openai
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_API_KEY=sk-...
+AWM_SYN_OVERRIDE_MODEL=gpt-4o-mini
+```
+
+Azure OpenAI：
+
+```bash
+# .env
+AWM_SYN_LLM_PROVIDER=azure
+AZURE_ENDPOINT_URL=https://<resource>.openai.azure.com
+AZURE_OPENAI_API_KEY=...
+AWM_SYN_OVERRIDE_MODEL=<deployment-name>
+```
+
+说明：
+
+- `owb` 启动时调用 `load_dotenv()`，会从当前工作目录**向上**查找 `.env`，因此在子目录调用时仍能读到仓库根目录的配置。
+- 单次运行可用 CLI 覆盖：`owb run --api_url ... --model ...`。
+- 离线步骤（`compile` / `sandbox` / `verify` / `report`）**不需要** API Key。
+
+## 快速开始
+
+先编译任务，再手敲沙箱或跑模型：
+
+```bash
 owb compile \
   --scenario data/scenarios/home_01.json \
   --task data/tasks/home/home_01_umbrella_move.json \
   --output_dir outputs/compiled
 
+# 交互式 REPL（不烧 token）— 适合演示 / 调试 walkthrough
+owb sandbox --db_path outputs/compiled/home_01_umbrella_move.db
+
+# 或启动 HTTP 环境并跑 Agent（需要 .env）
 owb env start \
   --db_path outputs/compiled/home_01_umbrella_move.db \
   --port 8001
+
+owb run --db_path outputs/compiled/home_01_umbrella_move.db
+owb verify --input_dir outputs/runs/<run_dir>
+owb report --input_dir outputs/runs --format markdown
 ```
 
 批量编译全部任务：
 
 ```bash
-owb compile --batch true --output_dir outputs/compiled
+owb compile --batch true \
+  --scenarios_dir data/scenarios \
+  --tasks_dir data/tasks \
+  --output_dir outputs/compiled
 ```
 
 ## 数据与规范
@@ -66,7 +131,7 @@ owb compile --batch true --output_dir outputs/compiled
 | 路径 | 说明 |
 |------|------|
 | `owb/schema/` | 场景/任务 Pydantic 模型与目标 DSL |
-| `owb/env/` | 世界状态、动作、观测、编译、MCP 服务 |
+| `owb/env/` | 世界状态、动作、观测、编译、MCP 服务、交互沙箱 |
 | `owb/run/` | Agent 循环与任务运行器 |
 | `owb/eval/` | 验证 / 诊断 / 报告 |
 | `owb/synth/` | 旧版 LLM 合成流水线（可选） |

@@ -2,7 +2,7 @@
 
 Analyses agent trajectories for common failure patterns:
 - invalid calls (wrong params, entity not found)
-- repeated exploration (same area, same action)
+- repeated exploration (same action + same params consecutively)
 - state conflicts (operating on closed containers, etc.)
 - excessive steps
 """
@@ -24,6 +24,36 @@ class DiagnoseConfig:
             raise FileNotFoundError(f"trajectory.json not found in {self.input_dir}")
 
 
+# Response fragments that mark a call as unsatisfiable rather than merely failed.
+_REFERENCE_ERRORS = ("does not exist", "not in the current area", "Unknown tool")
+
+
+def _tool_call_key(tc: dict) -> str:
+    """Stable key for deduplication: action name + sorted param pairs."""
+    name = tc.get("name", "unknown")
+    args = tc.get("arguments", {})
+    if isinstance(args, dict):
+        param_str = json.dumps(args, sort_keys=True, ensure_ascii=False)
+    else:
+        param_str = str(args)
+    return f"{name}:{param_str}"
+
+
+def _action_status(entry: dict) -> str:
+    """Return the outcome of an entry's tool call.
+
+    The agent records a structured ``status`` (``success`` / ``failure`` /
+    ``invalid_call`` / ``transport_error``).  Trajectories captured before
+    that field existed only carry the response text, so fall back to the
+    ``Error:`` prefix the executor prepends to every failure.
+    """
+    resp = entry.get("tool_response", {})
+    status = resp.get("status")
+    if status:
+        return status
+    return "failure" if resp.get("content", "").startswith("Error:") else "success"
+
+
 def diagnose_trajectory(config: DiagnoseConfig) -> dict[str, Any]:
     """Analyse a trajectory and return diagnostic metrics."""
     with open(Path(config.input_dir) / "trajectory.json", "r") as f:
@@ -32,31 +62,44 @@ def diagnose_trajectory(config: DiagnoseConfig) -> dict[str, Any]:
     trajectory = traj.get("trajectory", [])
     max_iterations = traj.get("max_iterations", 30)
 
-    stats = {
+    stats: dict[str, Any] = {
         "total_iterations": traj.get("total_iterations", 0),
         "max_iterations": max_iterations,
         "tool_calls": 0,
         "failed_actions": 0,
         "invalid_calls": 0,
-        "repeated_actions": Counter(),
+        "consecutive_repeats": 0,        # same action + same params, back-to-back
+        "transport_errors": 0,
+        "action_counts": Counter(),
         "area_visits": Counter(),
         "termination_type": "unknown",
     }
 
-    seen_actions = set()
+    prev_key: str | None = None
+
     for entry in trajectory:
         for tc in entry.get("tool_calls", []):
             stats["tool_calls"] += 1
             name = tc.get("name", "unknown")
-            stats["repeated_actions"][name] += 1
+            stats["action_counts"][name] += 1
 
-            # Check for failures
-            resp = entry.get("tool_response", {})
-            content = resp.get("content", "")
-            if content.startswith("Error:"):
+            # Structured failure detection
+            status = _action_status(entry)
+            if status != "success":
                 stats["failed_actions"] += 1
-                if "does not exist" in content or "not in the current area" in content:
+                content = entry.get("tool_response", {}).get("content", "")
+                # invalid = the call could never have worked: unknown tool, or
+                # a reference to an entity the robot cannot act on.
+                if status == "invalid_call" or any(m in content for m in _REFERENCE_ERRORS):
                     stats["invalid_calls"] += 1
+                if status == "transport_error":
+                    stats["transport_errors"] += 1
+
+            # Consecutive identical calls (stuck-in-place detection)
+            key = _tool_call_key(tc)
+            if key == prev_key:
+                stats["consecutive_repeats"] += 1
+            prev_key = key
 
             # Track area visits
             if name == "move_to":
@@ -67,16 +110,15 @@ def diagnose_trajectory(config: DiagnoseConfig) -> dict[str, Any]:
             if name in ("finish_task", "abandon_task", "report_unable_to_continue", "report_target_absent"):
                 stats["termination_type"] = name
 
-    # Repeated identical calls
-    stats["repeated_identical"] = sum(
-        1 for v in stats["repeated_actions"].values() if v > 1
-    )
-
-    # Efficiency score (actions per useful outcome)
+    # Failure rate
     if stats["tool_calls"] > 0:
         stats["failure_rate"] = stats["failed_actions"] / stats["tool_calls"]
     else:
         stats["failure_rate"] = 0.0
+
+    # Serialise Counters for JSON output
+    stats["action_counts"] = dict(stats["action_counts"].most_common())
+    stats["area_visits"] = dict(stats["area_visits"].most_common())
 
     return stats
 

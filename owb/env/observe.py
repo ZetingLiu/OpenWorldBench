@@ -35,7 +35,12 @@ def generate_observation(ws: WorldState) -> str:
         if eid:
             ent = ws.get_entity(eid)
             if ent:
-                held_parts.append(f"{hand}: {ent['name']} ({ent['id']}, {ent['class']})")
+                # Contents of a carried container are spelled out: they travel
+                # with the robot and never appear in the area listing, so a
+                # bare count would leave the robot unable to see what it holds.
+                held_parts.append(
+                    f"{hand}: {_describe_entity(ws, ent, expand_contents=True)}"
+                )
     if held_parts:
         lines.append("### Holding")
         for p in held_parts:
@@ -126,8 +131,13 @@ def _is_held(ws: WorldState, entity_id: str) -> bool:
     return robot.get("left_hand") == entity_id or robot.get("right_hand") == entity_id
 
 
-def _describe_entity(ws: WorldState, ent: dict) -> str:
-    """One-line description of an entity."""
+def _describe_entity(ws: WorldState, ent: dict, expand_contents: bool = False) -> str:
+    """One-line description of an entity.
+
+    With ``expand_contents`` the contained and supported items are named
+    rather than counted; area listings keep the counts because those items
+    are already listed separately.
+    """
     parts = [f"{ent['name']} ({ent['id']}, {ent['class']})"]
 
     # Check if it's a container and describe its state
@@ -148,11 +158,19 @@ def _describe_entity(ws: WorldState, ent: dict) -> str:
     ):
         contents = ws.get_entities_in_container(ent["id"])
         if contents:
-            parts.append(f"contains {len(contents)} item(s)")
+            if expand_contents:
+                names = ", ".join(f"{c['name']} ({c['id']})" for c in contents)
+                parts.append(f"contains {names}")
+            else:
+                parts.append(f"contains {len(contents)} item(s)")
 
     # Show items on surface
     surface_items = ws.get_entities_on_surface(ent["id"])
     if surface_items:
-        parts.append(f"with {len(surface_items)} item(s) on top")
+        if expand_contents:
+            names = ", ".join(f"{s['name']} ({s['id']})" for s in surface_items)
+            parts.append(f"with {names} on top")
+        else:
+            parts.append(f"with {len(surface_items)} item(s) on top")
 
     return " — ".join(parts)

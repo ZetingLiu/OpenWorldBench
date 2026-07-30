@@ -69,6 +69,24 @@ CREATE TABLE IF NOT EXISTS subgoal_status (
 
 
 # ---------------------------------------------------------------------------
+# Row decoding
+# ---------------------------------------------------------------------------
+
+def _row_to_entity(row: sqlite3.Row) -> dict:
+    """Decode an ``entities`` row into a plain dict.
+
+    Every caller expects ``properties`` and ``states`` to be real Python
+    values.  Handing back the raw ``*_json`` columns instead silently
+    disables each check that reads them, so all entity queries go through
+    here.
+    """
+    e = dict(row)
+    e["properties"] = json.loads(e.pop("properties_json", None) or "[]")
+    e["states"] = json.loads(e.pop("states_json", None) or "{}")
+    return e
+
+
+# ---------------------------------------------------------------------------
 # World state class
 # ---------------------------------------------------------------------------
 
@@ -274,9 +292,7 @@ class WorldState:
         entities: dict[str, dict] = {}
         rows = self.conn.execute("SELECT * FROM entities").fetchall()
         for row in rows:
-            e = dict(row)
-            e["properties"] = json.loads(e.pop("properties_json", "[]"))
-            e["states"] = json.loads(e.pop("states_json", "{}"))
+            e = _row_to_entity(row)
             e["held_by"] = None
             entities[e["id"]] = e
 
@@ -321,10 +337,7 @@ class WorldState:
         ).fetchone()
         if row is None:
             return None
-        e = dict(row)
-        e["properties"] = json.loads(e.pop("properties_json", "[]"))
-        e["states"] = json.loads(e.pop("states_json", "{}"))
-        return e
+        return _row_to_entity(row)
 
     def entity_exists(self, entity_id: str) -> bool:
         row = self.conn.execute(
@@ -444,19 +457,19 @@ class WorldState:
         rows = self.conn.execute(
             "SELECT * FROM entities WHERE area_id = ?", (area_id,)
         ).fetchall()
-        return [dict(r) for r in rows]
+        return [_row_to_entity(r) for r in rows]
 
     def get_entities_in_container(self, container_id: str) -> list[dict]:
         rows = self.conn.execute(
             "SELECT * FROM entities WHERE container_id = ?", (container_id,)
         ).fetchall()
-        return [dict(r) for r in rows]
+        return [_row_to_entity(r) for r in rows]
 
     def get_entities_on_surface(self, surface_id: str) -> list[dict]:
         rows = self.conn.execute(
             "SELECT * FROM entities WHERE on_id = ?", (surface_id,)
         ).fetchall()
-        return [dict(r) for r in rows]
+        return [_row_to_entity(r) for r in rows]
 
     def is_passable(self, from_id: str, to_id: str) -> bool:
         row = self.conn.execute(

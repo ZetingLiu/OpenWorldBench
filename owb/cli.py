@@ -6,6 +6,7 @@ Commands:
     owb run       — run an agent against a compiled task
     owb verify    — verify an agent run against the goal DSL
     owb report    — aggregate capability-tag evaluation report
+    owb sandbox   — interactive REPL for manually driving the world
     owb synth     — LLM synthesis pipeline (legacy, from awm)
 """
 
@@ -19,6 +20,7 @@ class TopCmd(str, Enum):
     run = "run"
     verify = "verify"
     report = "report"
+    sandbox = "sandbox"
     synth = "synth"
 
 
@@ -40,6 +42,7 @@ class SynthCmd(str, Enum):
 def _build_commands() -> dict:
     from owb.env.compile import CompileConfig
     from owb.env.server import ServerConfig
+    from owb.env.sandbox_cli import SandboxConfig
     from owb.run.runner import RunnerConfig
     from owb.eval.verify import VerifyConfig
     from owb.eval.report import ReportConfig
@@ -76,6 +79,7 @@ def _build_commands() -> dict:
         TopCmd.run: RunnerConfig,
         TopCmd.verify: VerifyConfig,
         TopCmd.report: ReportConfig,
+        TopCmd.sandbox: SandboxConfig,
         TopCmd.synth: synth_commands,
     }
 
@@ -86,6 +90,7 @@ DISPATCH = {
     (TopCmd.run,): "owb.run.runner",
     (TopCmd.verify,): "owb.eval.verify",
     (TopCmd.report,): "owb.eval.report",
+    (TopCmd.sandbox,): "owb.env.sandbox_cli",
     (TopCmd.synth, SynthCmd.scenario): "owb.synth.scenario",
     (TopCmd.synth, SynthCmd.task): "owb.synth.task",
     (TopCmd.synth, SynthCmd.db): "owb.synth.db",
@@ -98,6 +103,12 @@ DISPATCH = {
 
 
 def main():
+    # Load .env from the project root or any ancestor directory.
+    # python-dotenv's default behaviour walks upward; do NOT pin to
+    # Path.cwd() — that breaks invocation from subdirectories.
+    from dotenv import load_dotenv
+    load_dotenv()
+
     from simpleArgParser import parse_args_with_commands
 
     commands = _build_commands()

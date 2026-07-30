@@ -9,11 +9,11 @@ dependencies = [
     "fastapi-mcp==0.4.0",
     "json-repair>=0.56.0",
     "loguru>=0.7.3",
-    "mcp-agent==0.2.6",
     "numpy>=2.4.2",
     "openai>=2.17.0",
     "orjson>=3.11.7",
     "pydantic>=2.0",
+    "python-dotenv>=1.0",
     "httpx>=0.27.0",
     "simpleargparser>=0.2.2",
     "sqlalchemy==2.0.41",
@@ -22,6 +22,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Legacy LLM synthesis and MCP probing. The benchmark runner communicates
+# directly with the environment's HTTP action endpoints.
+synth = [
+    "mcp-agent==0.2.6",
+]
 # `bench` extra: also installs mcp-adapted-bench (from the submodule),
 # which itself pulls in BFCL / τ²-bench / MCP-Universe
 bench = [

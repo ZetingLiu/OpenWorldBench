@@ -25,31 +25,96 @@ Scenario/task JSON → compile → SQLite initial snapshot → MCP env (17 seman
 |-------|---------|--------|
 | Compile | `owb compile` | `owb/env/compile.py` |
 | Environment | `owb env start` | `owb/env/server.py` |
+| Sandbox REPL | `owb sandbox` | `owb/env/sandbox_cli.py` |
 | Agent run | `owb run` | `owb/run/` |
 | Verify | `owb verify` | `owb/eval/verify.py` |
 | Report | `owb report` | `owb/eval/report.py` |
 
-## Quickstart
+## Setup
+
+Requires **Python ≥ 3.11**.
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
+git clone <repo-url> OpenWorldBench
+cd OpenWorldBench
 
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -e .
+```
+
+Optional extras:
+
+| Extra | Install | When you need it |
+|-------|---------|------------------|
+| *(default)* | `pip install -e .` | Compile, sandbox, run, verify, report |
+| `synth` | `pip install -e ".[synth]"` | Legacy LLM synthesis + MCP probing (`mcp-agent`) |
+| `bench` | `pip install -e ".[bench]"` | Also needs the `mcp-adapted-bench` submodule |
+
+### LLM credentials (`.env`)
+
+`owb run` reads an OpenAI-compatible API from environment variables. Copy the template and edit **only** `.env` (it is gitignored; never put real keys in `.env.template`):
+
+```bash
+cp .env.template .env
+```
+
+Minimal OpenAI-compatible setup (OpenAI, GLM, ChatAnywhere, local vLLM, …):
+
+```bash
+# .env
+AWM_SYN_LLM_PROVIDER=openai
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_API_KEY=sk-...
+AWM_SYN_OVERRIDE_MODEL=gpt-4o-mini
+```
+
+Azure OpenAI:
+
+```bash
+# .env
+AWM_SYN_LLM_PROVIDER=azure
+AZURE_ENDPOINT_URL=https://<resource>.openai.azure.com
+AZURE_OPENAI_API_KEY=...
+AWM_SYN_OVERRIDE_MODEL=<deployment-name>
+```
+
+Notes:
+
+- `owb` calls `load_dotenv()` on startup and walks **upward** from the current working directory, so a repo-root `.env` is found even when you invoke `owb` from a subdirectory.
+- You can override URL / model per run with CLI flags: `owb run --api_url ... --model ...`.
+- Offline steps (`compile`, `sandbox`, `verify`, `report`) do **not** need an API key.
+
+## Quickstart
+
+Compile one task, then either drive it by hand or run a model:
+
+```bash
 owb compile \
   --scenario data/scenarios/home_01.json \
   --task data/tasks/home/home_01_umbrella_move.json \
   --output_dir outputs/compiled
 
+# Interactive REPL (no LLM) — best for demos / debugging walkthroughs
+owb sandbox --db_path outputs/compiled/home_01_umbrella_move.db
+
+# Or start the HTTP env and run an agent (needs .env)
 owb env start \
   --db_path outputs/compiled/home_01_umbrella_move.db \
   --port 8001
+
+owb run --db_path outputs/compiled/home_01_umbrella_move.db
+owb verify --input_dir outputs/runs/<run_dir>
+owb report --input_dir outputs/runs --format markdown
 ```
 
 Batch compile all tasks:
 
 ```bash
-owb compile --batch true --output_dir outputs/compiled
+owb compile --batch true \
+  --scenarios_dir data/scenarios \
+  --tasks_dir data/tasks \
+  --output_dir outputs/compiled
 ```
 
 ## Data & specs
@@ -66,7 +131,7 @@ owb compile --batch true --output_dir outputs/compiled
 | Path | Description |
 |------|-------------|
 | `owb/schema/` | Scenario/task Pydantic models + goal DSL |
-| `owb/env/` | World state, actions, observe, compile, MCP server |
+| `owb/env/` | World state, actions, observe, compile, MCP server, sandbox REPL |
 | `owb/run/` | Agent loop + task runner |
 | `owb/eval/` | Verify / diagnose / report |
 | `owb/synth/` | Legacy LLM synthesis pipeline (optional) |

@@ -22,7 +22,7 @@ outputs/
 
 # Local-only docs / reference clones (keep on disk, do not push)
 checklist.md
-openworldbench_refactor_plan.md
+docs/
 external/
 
 # OS / editor

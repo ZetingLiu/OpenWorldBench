@@ -61,6 +61,10 @@ Key rules:
 4. Devices must be closed before starting.
 5. Always observe the scene when entering a new area.
 6. Call finish_task when you believe the task is complete.
+7. Entity IDs follow the pattern <english_class>_<number> (e.g. umbrella_01, wardrobe_01).
+   Use observe_scene to discover actual IDs — never guess IDs.
+8. Area IDs are snake_case English names. Use the area list provided in the task
+   to know which areas exist and how to navigate between them.
 
 Be efficient: minimize unnecessary movement and actions.""")
 
@@ -319,10 +323,20 @@ class MCPToolExecutor:
         self.timeout = timeout
         self._client = httpx.AsyncClient(timeout=httpx.Timeout(timeout))
 
-    async def call_tool(self, tool_name: str, arguments: dict) -> str:
+    async def call_tool(self, tool_name: str, arguments: dict) -> tuple[str, str]:
+        """Execute a tool and return ``(status, text)``.
+
+        ``status`` is ``success``, ``failure`` (the environment rejected the
+        action), ``invalid_call`` (no such tool) or ``transport_error``.  Any
+        other value the server reports is passed through verbatim rather than
+        being folded into ``success``, so a status this client does not know
+        about shows up in diagnostics instead of silently counting as a win.
+        It is recorded in the trajectory so diagnostics do not have to
+        reverse-engineer outcomes from the response text.
+        """
         path = TOOL_TO_PATH.get(tool_name)
         if path is None:
-            return f"Error: Unknown tool '{tool_name}'"
+            return "invalid_call", f"Error: Unknown tool '{tool_name}'"
 
         url = f"{self.base_url}{path}"
 
@@ -340,11 +354,16 @@ class MCPToolExecutor:
                     resp = await self._client.post(url)
 
             data = resp.json()
-            if data.get("status") == "failure":
-                return f"Error: {data.get('observation', data.get('failure_reason', 'Unknown error'))}"
-            return data.get("observation", json.dumps(data, ensure_ascii=False))
+            status = data.get("status")
+            text = data.get("observation") or json.dumps(data, ensure_ascii=False)
+            if status == "failure":
+                reason = data.get("failure_reason") or data.get("observation") or "Unknown error"
+                return "failure", f"Error: {reason}"
+            if status not in (None, "success"):
+                return status, text
+            return "success", text
         except Exception as e:
-            return f"Error: {e}"
+            return "transport_error", f"Error: {e}"
 
     async def close(self):
         await self._client.aclose()
@@ -493,7 +512,7 @@ async def run_agent(config: AgentConfig) -> dict[str, Any]:
             messages.append(assistant_msg)
 
             logger.info(f"Executing: {tool_name}({json.dumps(tool_args, ensure_ascii=False)[:200]})")
-            response_text = await mcp.call_tool(tool_name, tool_args)
+            tool_status, response_text = await mcp.call_tool(tool_name, tool_args)
 
             if config.verbose:
                 preview = response_text[:500] + "..." if len(response_text) > 500 else response_text
@@ -517,6 +536,7 @@ async def run_agent(config: AgentConfig) -> dict[str, Any]:
                 "tool_calls": [tc],
                 "tool_response": {
                     "tool_call_id": tc["id"],
+                    "status": tool_status,
                     "content": response_text,
                 },
                 "is_final": is_termination,

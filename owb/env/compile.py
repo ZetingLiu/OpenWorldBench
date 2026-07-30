@@ -301,6 +301,9 @@ def compile_scenario_task(
 def _write_task_meta(task: Task, output_dir: Path) -> None:
     """Write a sidecar meta JSON next to the compiled DB so that the runner
     and verifier can recover the task definition (instruction, max_steps, …)."""
+    walkthrough_steps = [
+        len(w.actions) for w in task.walkthroughs
+    ]
     meta = {
         "task_id": task.task_id,
         "scenario_id": task.scenario_id,
@@ -309,6 +312,7 @@ def _write_task_meta(task: Task, output_dir: Path) -> None:
         "task_type": task.task_type.value,
         "capability_tags": [t.value for t in task.capability_tags],
         "max_steps": task.max_steps,
+        "walkthrough_min_steps": min(walkthrough_steps) if walkthrough_steps else None,
         "goal": task.goal,
         "subgoals": [sg.model_dump() for sg in task.subgoals],
     }

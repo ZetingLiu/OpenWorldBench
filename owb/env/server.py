@@ -241,6 +241,7 @@ if __name__ == "__main__":
     import sys
     db = sys.argv[1] if len(sys.argv) > 1 else ":memory:"
     port = int(sys.argv[2]) if len(sys.argv) > 2 else 8001
-    cfg = ServerConfig(db_path=db, port=port)
+    host = sys.argv[3] if len(sys.argv) > 3 else "127.0.0.1"
+    cfg = ServerConfig(db_path=db, host=host, port=port)
     cfg.pre_process()
     run_server(cfg)

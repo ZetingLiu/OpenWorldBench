@@ -482,6 +482,11 @@ def action_hang_object(ws: WorldState, params: dict) -> ActionResult:
 # 11. start_device
 # ===================================================================
 
+# Devices carrying this property leave an irreversible mark when started.
+TRANSACTION_PROPERTY = "transactional"
+TRANSACTION_STATE = "transaction_complete"
+
+
 def action_start_device(ws: WorldState, params: dict) -> ActionResult:
     entity_id = params.get("entity_id")
     if not entity_id:
@@ -498,6 +503,10 @@ def action_start_device(ws: WorldState, params: dict) -> ActionResult:
         return _failure(f"Entity '{entity_id}' is not a device")
 
     if ent.get("device_state") == "running":
+        # Backfill the mark: a device found already running still represents a
+        # completed transaction.
+        if TRANSACTION_PROPERTY in ent.get("properties", []):
+            ws.set_state(entity_id, TRANSACTION_STATE, True)
         return _success(observation=f"Device '{entity_id}' is already running.")
 
     # Pre-condition: if device is also a container, it must be closed
@@ -505,6 +514,18 @@ def action_start_device(ws: WorldState, params: dict) -> ActionResult:
         return _failure(f"Device '{entity_id}' must be closed before starting")
 
     ws.set_device_state(entity_id, "running")
+
+    # A transactional device (a POS terminal, say) records that its
+    # transaction went through.  The mark is never cleared, so switching the
+    # device off afterwards — which is the natural thing to do — does not
+    # undo the business outcome it represents.
+    if TRANSACTION_PROPERTY in ent.get("properties", []):
+        ws.set_state(entity_id, TRANSACTION_STATE, True)
+        return _success(
+            observation=f"Started device '{entity_id}'; transaction completed.",
+            entity_id=entity_id,
+        )
+
     return _success(
         observation=f"Started device '{entity_id}'.",
         entity_id=entity_id,

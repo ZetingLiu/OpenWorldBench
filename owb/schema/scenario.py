@@ -34,6 +34,9 @@ class Property(str, Enum):
     can_wash = "can_wash"
     hangable_inside = "hangable_inside"
     has_water = "has_water"
+    # Starting such a device records an irreversible completion mark, so a
+    # transaction survives the device being switched off afterwards.
+    transactional = "transactional"
     # item-side
     portable = "portable"
     absorbent = "absorbent"
