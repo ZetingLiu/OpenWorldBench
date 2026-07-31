@@ -3,7 +3,7 @@
   "spec_version": "0.1",
   "scenario_id": "home_01",
   "name": "衣物整理—洗涤",
-  "instruction": "卧室床上有脏衬衫和脏裤子，阳台上有洗衣机。请把两件脏衣物放入洗衣机并启动洗涤。收纳箱在卧室，可以用来搬运。",
+  "instruction": "卧室床上有脏衬衫和脏裤子，阳台上有洗衣机。请把两件脏衣物放入洗衣机并启动洗涤。",
   "task_type": "composite",
   "capability_tags": [
     "navigation",

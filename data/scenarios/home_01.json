@@ -2,10 +2,11 @@
   "scenario_id": "home_01",
   "spec_version": "0.1",
   "name": "家庭场景-两室一厅",
-  "description": "包含客厅、卧室、卫生间、阳台、门口五区域的典型家庭场景，覆盖衣物整理、洗涤、收纳等任务链",
+  "description": "包含客厅、厨房、卧室、卫生间、阳台、门口六区域的典型家庭场景，覆盖衣物整理、洗涤、收纳、清洁等任务链",
 
   "areas": [
     {"id": "living_room", "name": "客厅"},
+    {"id": "kitchen", "name": "厨房"},
     {"id": "bedroom", "name": "卧室"},
     {"id": "bathroom", "name": "卫生间"},
     {"id": "balcony", "name": "阳台"},
@@ -13,6 +14,7 @@
   ],
 
   "area_adjacency": [
+    {"from": "living_room", "to": "kitchen", "passable": true},
     {"from": "living_room", "to": "bedroom", "passable": true},
     {"from": "living_room", "to": "bathroom", "passable": true},
     {"from": "living_room", "to": "balcony", "passable": true},
@@ -72,6 +74,81 @@
         "pickable": false,
         "is_device": true,
         "device_state": "off",
+        "properties": [],
+        "states": {}
+      }
+    ],
+
+    "kitchen": [
+      {
+        "id": "kitchen_table_01",
+        "class": "furniture",
+        "name": "厨房桌面",
+        "pickable": false,
+        "properties": ["can_support"],
+        "states": {"cleanliness": "dirty"}
+      },
+      {
+        "id": "kitchen_floor_01",
+        "class": "fixture",
+        "name": "厨房地面",
+        "pickable": false,
+        "properties": [],
+        "states": {"cleanliness": "dirty"}
+      },
+      {
+        "id": "induction_cooker_01",
+        "class": "device",
+        "name": "电磁炉",
+        "pickable": false,
+        "is_device": true,
+        "device_state": "running",
+        "on": "kitchen_table_01",
+        "properties": [],
+        "states": {}
+      },
+      {
+        "id": "kitchen_knife_01",
+        "class": "tool",
+        "name": "菜刀",
+        "pickable": true,
+        "on": "kitchen_table_01",
+        "properties": [],
+        "states": {"condition": "used"}
+      },
+      {
+        "id": "kitchen_drawer_01",
+        "class": "container",
+        "name": "厨房刀具抽屉",
+        "pickable": false,
+        "open_state": "closed",
+        "properties": ["can_contain"],
+        "states": {}
+      },
+      {
+        "id": "kitchen_cabinet_01",
+        "class": "container",
+        "name": "厨房储物柜",
+        "pickable": false,
+        "open_state": "closed",
+        "properties": ["can_contain"],
+        "states": {}
+      },
+      {
+        "id": "dish_soap_01",
+        "class": "consumable",
+        "name": "洗洁精",
+        "pickable": true,
+        "in": "kitchen_cabinet_01",
+        "properties": [],
+        "states": {"amount": "full"}
+      },
+      {
+        "id": "garbage_bag_01",
+        "class": "item",
+        "name": "垃圾袋",
+        "pickable": true,
+        "in": "kitchen_cabinet_01",
         "properties": [],
         "states": {}
       }
@@ -191,6 +268,34 @@
     ],
 
     "bathroom": [
+      {
+        "id": "bathroom_cleaning_cabinet_01",
+        "class": "container",
+        "name": "卫生间清洁柜",
+        "pickable": false,
+        "open_state": "closed",
+        "properties": ["can_contain"],
+        "states": {}
+      },
+      {
+        "id": "cleaning_bucket_01",
+        "class": "container",
+        "name": "清洁水桶",
+        "pickable": true,
+        "in": "bathroom_cleaning_cabinet_01",
+        "open_state": "closed",
+        "properties": ["portable", "can_contain"],
+        "states": {}
+      },
+      {
+        "id": "cleaning_rag_01",
+        "class": "tool",
+        "name": "清洁抹布",
+        "pickable": true,
+        "in": "cleaning_bucket_01",
+        "properties": ["absorbent", "soft", "washable", "hangable"],
+        "states": {"cleanliness": "clean"}
+      },
       {
         "id": "sink_01",
         "class": "fixture",

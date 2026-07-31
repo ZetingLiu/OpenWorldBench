@@ -18,7 +18,8 @@ from fastapi_mcp import FastApiMCP
 from loguru import logger
 
 from owb.env.world import WorldState
-from owb.env.actions import execute_action, get_available_actions
+from owb.env.actions import ActionResult, execute_action, get_available_actions
+from owb.env.commonsense_judge import CommonsenseJudge
 from owb.env.observe import generate_observation, generate_entity_detail
 
 
@@ -58,12 +59,45 @@ def create_app(db_path: str) -> FastAPI:
     """Create a FastAPI app with the 17 semantic actions as endpoints."""
     global _world_state
     _world_state = WorldState(db_path)
+    judge = CommonsenseJudge(db_path)
 
     app = FastAPI(
         title="OpenWorldBench Environment",
         description="Data-driven embodied agent benchmark environment with 17 semantic actions",
         version="0.1.0",
     )
+
+    async def execute_with_judge(
+        action_name: str, params: dict[str, Any]
+    ) -> ActionResult:
+        """Judge a physical action before allowing its state transition."""
+        ws = get_world_state()
+        decision = await judge.evaluate(ws, action_name, params)
+        if decision is not None and not decision.allowed:
+            reason = f"Commonsense judge rejected action: {decision.reason}"
+            logger.info(f"{action_name} rejected by commonsense judge: {decision.reason}")
+            ws.log_action(
+                step_id=ws.get_action_count() + 1,
+                action=action_name,
+                params=params,
+                status="failure",
+                failure_reason=reason,
+            )
+            return ActionResult(
+                status="failure",
+                failure_reason=reason,
+                observation=reason,
+                data={
+                    "judge": {
+                        "allowed": decision.allowed,
+                        "reason": decision.reason,
+                        "violated_constraints": decision.violated_constraints,
+                        "confidence": decision.confidence,
+                        "model": decision.model,
+                    }
+                },
+            )
+        return execute_action(ws, action_name, params)
 
     # ------------------------------------------------------------------
     # Perception endpoints
@@ -115,14 +149,14 @@ def create_app(db_path: str) -> FastAPI:
     @app.post("/action/pick_object")
     async def pick_object(entity_id: str) -> dict[str, Any]:
         """Pick up an entity."""
-        result = execute_action(get_world_state(), "pick_object", {"entity_id": entity_id})
+        result = await execute_with_judge("pick_object", {"entity_id": entity_id})
         return {"status": result.status, "observation": result.observation, "data": result.data}
 
     @app.post("/action/place_object")
     async def place_object(entity_id: str, target_id: str) -> dict[str, Any]:
         """Place an entity into a container or onto a surface."""
-        result = execute_action(
-            get_world_state(), "place_object",
+        result = await execute_with_judge(
+            "place_object",
             {"entity_id": entity_id, "target_id": target_id},
         )
         return {"status": result.status, "observation": result.observation, "data": result.data}
@@ -130,20 +164,20 @@ def create_app(db_path: str) -> FastAPI:
     @app.post("/action/open_container")
     async def open_container(entity_id: str) -> dict[str, Any]:
         """Open a container."""
-        result = execute_action(get_world_state(), "open_container", {"entity_id": entity_id})
+        result = await execute_with_judge("open_container", {"entity_id": entity_id})
         return {"status": result.status, "observation": result.observation, "data": result.data}
 
     @app.post("/action/close_container")
     async def close_container(entity_id: str) -> dict[str, Any]:
         """Close a container."""
-        result = execute_action(get_world_state(), "close_container", {"entity_id": entity_id})
+        result = await execute_with_judge("close_container", {"entity_id": entity_id})
         return {"status": result.status, "observation": result.observation, "data": result.data}
 
     @app.post("/action/hang_object")
     async def hang_object(entity_id: str, target_id: str) -> dict[str, Any]:
         """Hang an entity on a hangable surface."""
-        result = execute_action(
-            get_world_state(), "hang_object",
+        result = await execute_with_judge(
+            "hang_object",
             {"entity_id": entity_id, "target_id": target_id},
         )
         return {"status": result.status, "observation": result.observation, "data": result.data}
@@ -155,13 +189,13 @@ def create_app(db_path: str) -> FastAPI:
     @app.post("/action/start_device")
     async def start_device(entity_id: str) -> dict[str, Any]:
         """Start a device."""
-        result = execute_action(get_world_state(), "start_device", {"entity_id": entity_id})
+        result = await execute_with_judge("start_device", {"entity_id": entity_id})
         return {"status": result.status, "observation": result.observation, "data": result.data}
 
     @app.post("/action/stop_device")
     async def stop_device(entity_id: str) -> dict[str, Any]:
         """Stop a device."""
-        result = execute_action(get_world_state(), "stop_device", {"entity_id": entity_id})
+        result = await execute_with_judge("stop_device", {"entity_id": entity_id})
         return {"status": result.status, "observation": result.observation, "data": result.data}
 
     # ------------------------------------------------------------------
@@ -173,8 +207,8 @@ def create_app(db_path: str) -> FastAPI:
         tool_id: str, target_id: str, intended_effect: str | None = None
     ) -> dict[str, Any]:
         """Use a physical tool on a target entity."""
-        result = execute_action(
-            get_world_state(), "apply_physical_tool",
+        result = await execute_with_judge(
+            "apply_physical_tool",
             {"tool_id": tool_id, "target_id": target_id, "intended_effect": intended_effect},
         )
         return {"status": result.status, "observation": result.observation, "data": result.data}

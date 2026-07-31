@@ -1,0 +1,16 @@
+2026-07-31 04:09:30.235 | INFO     | owb.eval.verify:verify_run:114 - Verification result: complete
+{
+  "result": "complete",
+  "subgoals": {
+    "cleaning_tool_found": true,
+    "kitchen_table_clean": true,
+    "kitchen_floor_clean": true
+  },
+  "goal_satisfied": true,
+  "details": {
+    "task_id": "home_01_kitchen_clean_no_mop",
+    "scenario_id": "home_01",
+    "total_iterations": 22,
+    "max_steps": 30
+  }
+}

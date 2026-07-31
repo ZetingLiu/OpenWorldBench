@@ -175,6 +175,9 @@ def _evaluate_subgoals_from_trajectory(task: Task, config: VerifyConfig) -> dict
         from owb.env.actions import execute_action
 
         for entry in traj.get("trajectory", []):
+            tool_response = entry.get("tool_response") or {}
+            if tool_response.get("status") != "success":
+                continue
             for tc in entry.get("tool_calls", []):
                 try:
                     execute_action(ws, tc["name"], tc.get("arguments", {}))

@@ -456,6 +456,7 @@ async def run_agent(config: AgentConfig) -> dict[str, Any]:
 
             choice = response.choices[0]
             content = choice.message.content or ""
+            reasoning_content = getattr(choice.message, "reasoning_content", None)
 
             # Extract tool calls
             tool_calls = []
@@ -486,6 +487,7 @@ async def run_agent(config: AgentConfig) -> dict[str, Any]:
                     "iteration": iteration,
                     "role": "assistant",
                     "content": content,
+                    "reasoning_content": reasoning_content,
                     "tool_calls": [],
                     "is_final": True,
                 })
@@ -500,6 +502,8 @@ async def run_agent(config: AgentConfig) -> dict[str, Any]:
             # otherwise the following role="tool" message is rejected by
             # the OpenAI API.  Only the executed call is kept.
             assistant_msg: dict[str, Any] = {"role": "assistant", "content": content}
+            if reasoning_content:
+                assistant_msg["reasoning_content"] = reasoning_content
             if config.use_native_tools:
                 assistant_msg["tool_calls"] = [{
                     "id": tc["id"],
@@ -533,6 +537,7 @@ async def run_agent(config: AgentConfig) -> dict[str, Any]:
                 "iteration": iteration,
                 "role": "assistant",
                 "content": content,
+                "reasoning_content": reasoning_content,
                 "tool_calls": [tc],
                 "tool_response": {
                     "tool_call_id": tc["id"],

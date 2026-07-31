@@ -1,0 +1,57 @@
+# Commonsense transition judge
+
+The environment can ask an independent OpenAI-compatible model to judge
+physical actions before committing their state transitions.
+
+## Configuration
+
+Add these values to the repository `.env`:
+
+```dotenv
+OWB_COMMONSENSE_JUDGE_ENABLED=true
+OWB_COMMONSENSE_JUDGE_MODEL=deepseek-v4-pro
+OWB_COMMONSENSE_JUDGE_FAIL_CLOSED=true
+```
+
+The judge uses `OPENAI_BASE_URL` and `OPENAI_API_KEY`. If
+`OWB_COMMONSENSE_JUDGE_MODEL` is omitted, it falls back to
+`AWM_SYN_OVERRIDE_MODEL`.
+
+`OWB_COMMONSENSE_JUDGE_FAIL_CLOSED=true` rejects a physical action when the
+judge is unavailable or returns an invalid response. Set it to `false` only
+when API availability is more important than benchmark integrity.
+
+## Judged actions
+
+- `pick_object`
+- `place_object`
+- `open_container`
+- `close_container`
+- `hang_object`
+- `start_device`
+- `stop_device`
+- `apply_physical_tool`
+
+Navigation remains governed by deterministic topology rules. Perception and
+termination actions do not invoke the judge.
+
+## Decision records
+
+Each run writes `judge_decisions.jsonl` beside its `working.db`. Every entry
+contains the action, parameters, decision, reason, violated constraints,
+confidence, model, timestamp, error information, and the raw judge response.
+
+Rejected actions:
+
+- return a structured failure to the evaluated agent;
+- do not modify the world state;
+- are recorded in the database action log;
+- are excluded from successful-action replay during subgoal verification.
+
+## Implementation
+
+- `owb/env/commonsense_judge.py`: state summarization, prompt, API call,
+  response parsing, and JSONL audit log.
+- `owb/env/server.py`: pre-transition judge gate.
+- `owb/eval/verify.py`: replay only actions whose recorded tool response was
+  successful.

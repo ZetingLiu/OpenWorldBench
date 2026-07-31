@@ -1,0 +1,18 @@
+2026-07-31 04:42:11.980 | INFO     | owb.eval.verify:verify_run:114 - Verification result: exceeded
+{
+  "result": "exceeded",
+  "subgoals": {
+    "cooker_safe": true,
+    "knife_stored": true,
+    "cleaning_tool_found": true,
+    "kitchen_table_clean": true,
+    "kitchen_floor_clean": true
+  },
+  "goal_satisfied": false,
+  "details": {
+    "task_id": "home_01_kitchen_safety_restore",
+    "scenario_id": "home_01",
+    "total_iterations": 40,
+    "max_steps": 40
+  }
+}

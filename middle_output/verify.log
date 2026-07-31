@@ -1,0 +1,16 @@
+2026-07-31 03:13:06.370 | INFO     | owb.eval.verify:verify_run:114 - Verification result: complete
+{
+  "result": "complete",
+  "subgoals": {
+    "clothes_01_collected": true,
+    "clothes_02_collected": true,
+    "clothes_in_machine": true
+  },
+  "goal_satisfied": true,
+  "details": {
+    "task_id": "home_01_laundry_basic",
+    "scenario_id": "home_01",
+    "total_iterations": 12,
+    "max_steps": 40
+  }
+}
